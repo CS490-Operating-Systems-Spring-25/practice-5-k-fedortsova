@@ -1,0 +1,190 @@
+label kernel_entry_point
+    copy FREE_MEMORY_END to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_stack_ptr
+
+label loop
+    write "Enter the name of the disk: " to DISPLAY_BUFFER
+    write COLOR_CYAN to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+
+    write OP_READ_INPUT to REG_OP
+    cpu_exec
+
+    var disk_name
+    copy KEYBOARD_BUFFER to var:disk_name
+
+    write "Enter the partition name: " to DISPLAY_BUFFER
+    write COLOR_CYAN to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+
+    write OP_READ_INPUT to REG_OP
+    cpu_exec
+
+    var partition_name
+    copy KEYBOARD_BUFFER to var:partition_name
+
+    var counter
+    write 4 to var:counter
+
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:name_validator
+
+    jump label:loop
+
+label name_validator
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    copy var:disk_name to REG_A
+    copy var:counter to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:error
+
+    var partition
+    copy REG_RES to var:partition
+
+    copy var:partition to REG_A
+    write "END_PARTITION_TABLE" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:error
+
+    copy var:partition to REG_A
+    write 2 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    copy var:partition_name to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:header_validator
+
+    copy var:counter to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:counter
+
+    jump label:name_validator
+
+label header_validator
+    copy var:partition to REG_A
+    write 4 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:counter
+
+    copy var:disk_name to REG_A
+    copy var:counter to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+
+    var header
+    copy REG_RES to var:header
+
+    copy var:header to REG_A
+    write 1 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    write "FS_HEADER" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_err label:error
+
+    copy var:header to REG_A
+    write 2 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    write "kagu_fs" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_err label:error
+
+    copy var:header to REG_A
+    write 3 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    write "FIRST_USABLE_BLOCK" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_err label:error
+
+    copy var:header to REG_A
+    write 5 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    write "LAST_USABLE_BLOCK" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_err label:error
+
+    copy var:header to REG_A
+    write 4 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    var block_start
+    copy REG_RES to var:block_start
+
+    copy var:header to REG_A
+    write 6 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    var block_end
+    copy REG_RES to var:block_end
+
+    copy var:block_start to REG_A
+    copy var:block_end to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if_not label:error
+
+    copy var:block_start to REG_A
+    write OP_DECR to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_B
+    copy var:disk_name to REG_A
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:error
+
+    copy REG_RES to REG_A
+    write "FS_HEADER_END" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if_not label:error
+
+label error
+    write "ERROR!" to DISPLAY_BUFFER
+    write COLOR_RED to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+    jump label:loop
+
+label exit
+    write OP_HALT to REG_OP
+    cpu_exec

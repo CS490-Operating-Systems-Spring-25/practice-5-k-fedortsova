@@ -1,0 +1,96 @@
+DEBUG_OFF
+
+var input_file
+var file_desc
+var counter
+var current_line
+var current_line_first_symbol
+
+label kernel_entry_point
+    copy FREE_MEMORY_END to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_stack_ptr
+
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_init
+
+    write "Enter a file path: " to DISPLAY_BUFFER
+    write COLOR_NO to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+
+    write KEYBOARD_READ_LINE to REG_A
+    write OP_READ_INPUT to REG_OP
+    cpu_exec
+    copy KEYBOARD_BUFFER to var:input_file
+
+    copy var:input_file to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_open
+    jump_err label:exit
+    copy REG_RES to var:file_desc
+
+    label file_modification_loop
+        copy var:file_desc to REG_A
+        copy var:counter to REG_B
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_read
+        jump_err label:close_file
+        copy REG_RES to var:current_line
+        
+        copy var:current_line to REG_A
+        write 1 to REG_B
+        write "" to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to var:current_line_first_symbol
+        copy var:current_line_first_symbol to REG_A
+        write OP_IS_NUM to REG_OP
+        cpu_exec
+        jump_if_not label:continue_loop_check
+
+        copy var:current_line_first_symbol to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:current_line_first_symbol
+
+        copy var:current_line to REG_A
+        write 1 to REG_B
+        write "" to REG_C
+        copy var:current_line_first_symbol to REG_D
+        write OP_REPLACE_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to var:current_line
+
+        copy var:file_desc to REG_A
+        copy var:counter to REG_B
+        copy var:current_line to REG_C
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_write
+        jump_err label:close_file
+
+        write "Changed: " to DISPLAY_BUFFER
+        write COLOR_GREEN to DISPLAY_COLOR
+        write OP_DISPLAY to REG_OP
+        cpu_exec
+        copy var:counter to DISPLAY_BUFFER
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+
+        label continue_loop_check
+            copy var:counter to REG_A
+            write OP_INCR to REG_OP
+            cpu_exec
+            copy REG_RES to var:counter
+            jump label:file_modification_loop
+
+label close_file
+    copy var:file_desc to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_close
+    jump label:exit
+
+label exit
+    write OP_HALT to REG_OP
+    cpu_exec
